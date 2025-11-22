@@ -1,6 +1,6 @@
 import { Request, Response, NextFunction } from 'express';
 import jwt from 'jsonwebtoken';
-import { UserRole, hasPermission, Permission, isValidRole } from './permissions';
+import { UserRole, hasPermission, Permission } from './permissions';
 
 export interface AuthRequest extends Request {
   user?: {
