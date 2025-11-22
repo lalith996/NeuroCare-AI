@@ -1,12 +1,13 @@
 import { Response } from 'express';
 import { AuthRequest } from '../middleware/auth';
 
-export const runPrediction = async (req: AuthRequest, res: Response) => {
+export const runPrediction = async (req: AuthRequest, res: Response): Promise<void> => {
   try {
     const { patientId } = req.body;
 
     if (!patientId) {
-      return res.status(400).json({ error: 'Patient ID is required' });
+      res.status(400).json({ error: 'Patient ID is required' });
+      return;
     }
 
     // TODO: Implement ML prediction logic

@@ -7,6 +7,8 @@ import { errorHandler } from './middleware/errorHandler';
 import authRoutes from './routes/auth.routes';
 import doctorRoutes from './routes/doctor.routes';
 import patientRoutes from './routes/patient.routes';
+import caregiverRoutes from './routes/caregiver.routes';
+import adminRoutes from './routes/admin.routes';
 import reportRoutes from './routes/report.routes';
 import scoreRoutes from './routes/score.routes';
 import predictionRoutes from './routes/prediction.routes';
@@ -27,7 +29,7 @@ app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
 // Health check
-app.get('/health', (req, res) => {
+app.get('/health', (_req, res) => {
   res.json({
     status: 'healthy',
     service: 'NeuroCare AI API',
@@ -40,6 +42,8 @@ app.get('/health', (req, res) => {
 app.use('/api/auth', authRoutes);
 app.use('/api/doctor', doctorRoutes);
 app.use('/api/patient', patientRoutes);
+app.use('/api/caregiver', caregiverRoutes);
+app.use('/api/admin', adminRoutes);
 app.use('/api/reports', reportRoutes);
 app.use('/api/scores', scoreRoutes);
 app.use('/api/predictions', predictionRoutes);

@@ -2,7 +2,7 @@ import { Response } from 'express';
 import pool from '../config/database';
 import { AuthRequest } from '../middleware/auth';
 
-export const getAssignedGames = async (req: AuthRequest, res: Response) => {
+export const getAssignedGames = async (req: AuthRequest, res: Response): Promise<void> => {
   try {
     const userId = req.user!.id;
 
@@ -13,7 +13,8 @@ export const getAssignedGames = async (req: AuthRequest, res: Response) => {
     );
 
     if (patientResult.rows.length === 0) {
-      return res.status(404).json({ error: 'Patient profile not found' });
+      res.status(404).json({ error: 'Patient profile not found' });
+      return;
     }
 
     const patient = patientResult.rows[0];
@@ -37,7 +38,7 @@ export const getAssignedGames = async (req: AuthRequest, res: Response) => {
   }
 };
 
-export const uploadDocument = async (req: AuthRequest, res: Response) => {
+export const uploadDocument = async (_req: AuthRequest, res: Response): Promise<void> => {
   try {
     // TODO: Implement file upload with multer
     res.status(501).json({ error: 'Document upload not yet implemented' });
@@ -47,7 +48,7 @@ export const uploadDocument = async (req: AuthRequest, res: Response) => {
   }
 };
 
-export const getDocuments = async (req: AuthRequest, res: Response) => {
+export const getDocuments = async (req: AuthRequest, res: Response): Promise<void> => {
   try {
     const userId = req.user!.id;
 
@@ -57,7 +58,8 @@ export const getDocuments = async (req: AuthRequest, res: Response) => {
     );
 
     if (patientResult.rows.length === 0) {
-      return res.status(404).json({ error: 'Patient profile not found' });
+      res.status(404).json({ error: 'Patient profile not found' });
+      return;
     }
 
     const patientCode = patientResult.rows[0].patient_code;

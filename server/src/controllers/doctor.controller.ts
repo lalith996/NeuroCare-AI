@@ -2,7 +2,7 @@ import { Response } from 'express';
 import pool from '../config/database';
 import { AuthRequest } from '../middleware/auth';
 
-export const getMyPatients = async (req: AuthRequest, res: Response) => {
+export const getMyPatients = async (req: AuthRequest, res: Response): Promise<void> => {
   try {
     const doctorId = req.user!.id;
 
@@ -22,13 +22,14 @@ export const getMyPatients = async (req: AuthRequest, res: Response) => {
   }
 };
 
-export const assignGames = async (req: AuthRequest, res: Response) => {
+export const assignGames = async (req: AuthRequest, res: Response): Promise<void> => {
   try {
     const doctorId = req.user!.id;
     const { patientCode, games } = req.body;
 
     if (!patientCode || !games || !Array.isArray(games)) {
-      return res.status(400).json({ error: 'Invalid request data' });
+      res.status(400).json({ error: 'Invalid request data' });
+      return;
     }
 
     // Verify patient belongs to this doctor
@@ -38,7 +39,8 @@ export const assignGames = async (req: AuthRequest, res: Response) => {
     );
 
     if (patientCheck.rows.length === 0) {
-      return res.status(404).json({ error: 'Patient not found or not assigned to you' });
+      res.status(404).json({ error: 'Patient not found or not assigned to you' });
+      return;
     }
 
     // Delete existing assignments
@@ -68,7 +70,7 @@ export const assignGames = async (req: AuthRequest, res: Response) => {
   }
 };
 
-export const getPatientScores = async (req: AuthRequest, res: Response) => {
+export const getPatientScores = async (req: AuthRequest, res: Response): Promise<void> => {
   try {
     const doctorId = req.user!.id;
     const { patientCode } = req.params;
@@ -80,7 +82,8 @@ export const getPatientScores = async (req: AuthRequest, res: Response) => {
     );
 
     if (patientCheck.rows.length === 0) {
-      return res.status(404).json({ error: 'Patient not found or not assigned to you' });
+      res.status(404).json({ error: 'Patient not found or not assigned to you' });
+      return;
     }
 
     // Get scores
