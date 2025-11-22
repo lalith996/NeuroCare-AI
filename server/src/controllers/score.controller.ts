@@ -17,7 +17,8 @@ export const submitScore = async (req: Request, res: Response): Promise<void> =>
     } = req.body;
 
     if (!patientId || !game || score === undefined) {
-      return res.status(400).json({ error: 'Missing required fields' });
+      res.status(400).json({ error: 'Missing required fields' });
+      return;
     }
 
     const result = await pool.query(

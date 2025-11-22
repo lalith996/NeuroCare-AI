@@ -74,7 +74,8 @@ export const generateReport = async (req: AuthRequest, res: Response): Promise<v
     );
 
     if (patientCheck.rows.length === 0) {
-      return res.status(404).json({ error: 'Patient not found or not assigned to you' });
+      res.status(404).json({ error: 'Patient not found or not assigned to you' });
+      return;
     }
 
     // Get scores
@@ -84,7 +85,8 @@ export const generateReport = async (req: AuthRequest, res: Response): Promise<v
     );
 
     if (scoresResult.rows.length === 0) {
-      return res.status(400).json({ error: 'No scores available for this patient' });
+      res.status(400).json({ error: 'No scores available for this patient' });
+      return;
     }
 
     // Get latest prediction
@@ -128,7 +130,8 @@ export const getLatestReport = async (req: AuthRequest, res: Response): Promise<
     );
 
     if (accessCheck.rows.length === 0) {
-      return res.status(403).json({ error: 'Access denied' });
+      res.status(403).json({ error: 'Access denied' });
+      return;
     }
 
     const reportResult = await pool.query(
@@ -141,7 +144,8 @@ export const getLatestReport = async (req: AuthRequest, res: Response): Promise<
     );
 
     if (reportResult.rows.length === 0) {
-      return res.status(404).json({ error: 'No report found' });
+      res.status(404).json({ error: 'No report found' });
+      return;
     }
 
     res.json(reportResult.rows[0]);

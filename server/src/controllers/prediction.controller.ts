@@ -6,7 +6,8 @@ export const runPrediction = async (req: AuthRequest, res: Response): Promise<vo
     const { patientId } = req.body;
 
     if (!patientId) {
-      return res.status(400).json({ error: 'Patient ID is required' });
+      res.status(400).json({ error: 'Patient ID is required' });
+      return;
     }
 
     // TODO: Implement ML prediction logic

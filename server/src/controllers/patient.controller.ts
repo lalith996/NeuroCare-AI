@@ -13,7 +13,8 @@ export const getAssignedGames = async (req: AuthRequest, res: Response): Promise
     );
 
     if (patientResult.rows.length === 0) {
-      return res.status(404).json({ error: 'Patient profile not found' });
+      res.status(404).json({ error: 'Patient profile not found' });
+      return;
     }
 
     const patient = patientResult.rows[0];
@@ -57,7 +58,8 @@ export const getDocuments = async (req: AuthRequest, res: Response): Promise<voi
     );
 
     if (patientResult.rows.length === 0) {
-      return res.status(404).json({ error: 'Patient profile not found' });
+      res.status(404).json({ error: 'Patient profile not found' });
+      return;
     }
 
     const patientCode = patientResult.rows[0].patient_code;
