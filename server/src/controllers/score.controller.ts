@@ -1,7 +1,7 @@
 import { Request, Response } from 'express';
 import pool from '../config/database';
 
-export const submitScore = async (req: Request, res: Response) => {
+export const submitScore = async (req: Request, res: Response): Promise<void> => {
   try {
     const {
       patientId,

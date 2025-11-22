@@ -2,7 +2,7 @@ import { Response } from 'express';
 import pool from '../config/database';
 import { AuthRequest } from '../middleware/auth';
 
-export const getMyPatients = async (req: AuthRequest, res: Response) => {
+export const getMyPatients = async (req: AuthRequest, res: Response): Promise<void> => {
   try {
     const doctorId = req.user!.id;
 
@@ -22,7 +22,7 @@ export const getMyPatients = async (req: AuthRequest, res: Response) => {
   }
 };
 
-export const assignGames = async (req: AuthRequest, res: Response) => {
+export const assignGames = async (req: AuthRequest, res: Response): Promise<void> => {
   try {
     const doctorId = req.user!.id;
     const { patientCode, games } = req.body;
@@ -68,7 +68,7 @@ export const assignGames = async (req: AuthRequest, res: Response) => {
   }
 };
 
-export const getPatientScores = async (req: AuthRequest, res: Response) => {
+export const getPatientScores = async (req: AuthRequest, res: Response): Promise<void> => {
   try {
     const doctorId = req.user!.id;
     const { patientCode } = req.params;

@@ -62,7 +62,7 @@ const generateReportContent = (patientCode: number, scores: any[], prediction: a
   return report;
 };
 
-export const generateReport = async (req: AuthRequest, res: Response) => {
+export const generateReport = async (req: AuthRequest, res: Response): Promise<void> => {
   try {
     const doctorId = req.user!.id;
     const { patientCode } = req.params;
@@ -116,7 +116,7 @@ export const generateReport = async (req: AuthRequest, res: Response) => {
   }
 };
 
-export const getLatestReport = async (req: AuthRequest, res: Response) => {
+export const getLatestReport = async (req: AuthRequest, res: Response): Promise<void> => {
   try {
     const userId = req.user!.id;
     const { patientCode } = req.params;

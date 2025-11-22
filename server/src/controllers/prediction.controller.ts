@@ -1,7 +1,7 @@
 import { Response } from 'express';
 import { AuthRequest } from '../middleware/auth';
 
-export const runPrediction = async (req: AuthRequest, res: Response) => {
+export const runPrediction = async (req: AuthRequest, res: Response): Promise<void> => {
   try {
     const { patientId } = req.body;
 
