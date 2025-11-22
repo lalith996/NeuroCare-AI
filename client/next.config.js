@@ -12,6 +12,10 @@ const nextConfig = {
   experimental: {
     optimizePackageImports: ['lucide-react', 'recharts'],
   },
+  // Output configuration for Vercel
+  output: 'standalone',
+  // Disable font optimization during build if network issues occur
+  optimizeFonts: true,
 }
 
 module.exports = nextConfig
