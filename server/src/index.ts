@@ -16,6 +16,8 @@ import gamificationRoutes from './routes/gamification.routes';
 import progressRoutes from './routes/progress.routes';
 import notificationRoutes from './routes/notification.routes';
 import riskAssessmentRoutes from './routes/risk-assessment.routes';
+import trendsRoutes from './routes/trends.routes';
+import comparativeAnalyticsRoutes from './routes/comparative-analytics.routes';
 
 dotenv.config();
 
@@ -55,6 +57,8 @@ app.use('/api/gamification', gamificationRoutes);
 app.use('/api/progress', progressRoutes);
 app.use('/api/notifications', notificationRoutes);
 app.use('/api/risk', riskAssessmentRoutes);
+app.use('/api/analytics/trends', trendsRoutes);
+app.use('/api/analytics/comparative', comparativeAnalyticsRoutes);
 
 // Error handling
 app.use(errorHandler);

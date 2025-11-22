@@ -12,6 +12,9 @@ import { MemoryMatchGame } from '@/components/games/MemoryMatchGame'
 import { StroopTestGame } from '@/components/games/StroopTestGame'
 import { ReactionTimeGame } from '@/components/games/ReactionTimeGame'
 import { NBackGame } from '@/components/games/NBackGame'
+import PatternRecognitionGame from '@/components/games/PatternRecognitionGame'
+import TrailMakingTest from '@/components/games/TrailMakingTest'
+import VerbalFluencyTest from '@/components/games/VerbalFluencyTest'
 import { CognitiveFingerprint } from '@/components/analytics/CognitiveFingerprint'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
@@ -25,6 +28,9 @@ import {
   Brain,
   Activity,
   Award,
+  Grid3x3,
+  Route,
+  MessageSquare,
 } from 'lucide-react'
 import { motion } from 'framer-motion'
 
@@ -101,6 +107,27 @@ export default function EnhancedPatientDashboard() {
       description: 'Challenge your working memory capacity',
       icon: Brain,
       color: 'bg-orange-500',
+    },
+    {
+      id: 'pattern-recognition',
+      name: 'Pattern Recognition',
+      description: 'Test visual-spatial memory and pattern matching',
+      icon: Grid3x3,
+      color: 'bg-indigo-500',
+    },
+    {
+      id: 'trail-making',
+      name: 'Trail Making Test',
+      description: 'Measure processing speed and cognitive flexibility',
+      icon: Route,
+      color: 'bg-cyan-500',
+    },
+    {
+      id: 'verbal-fluency',
+      name: 'Verbal Fluency',
+      description: 'Test language production and semantic memory',
+      icon: MessageSquare,
+      color: 'bg-emerald-500',
     },
   ]
 
@@ -187,6 +214,9 @@ export default function EnhancedPatientDashboard() {
                 {selectedGame === 'stroop-test' && <StroopTestGame />}
                 {selectedGame === 'reaction-time' && <ReactionTimeGame />}
                 {selectedGame === 'n-back' && <NBackGame />}
+                {selectedGame === 'pattern-recognition' && <PatternRecognitionGame />}
+                {selectedGame === 'trail-making' && <TrailMakingTest />}
+                {selectedGame === 'verbal-fluency' && <VerbalFluencyTest />}
               </div>
             ) : (
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
