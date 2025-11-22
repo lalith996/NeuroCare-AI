@@ -118,3 +118,49 @@ export const gamesAPI = {
 
   getGame: (gameId: number) => api.get(`/api/games/${gameId}`),
 }
+
+// Gamification API
+export const gamificationAPI = {
+  getAchievements: () => api.get('/api/gamification/achievements'),
+
+  checkAchievements: () => api.post('/api/gamification/achievements/check'),
+
+  getStreak: () => api.get('/api/gamification/streak'),
+
+  updateStreak: () => api.post('/api/gamification/streak/update'),
+
+  getLeaderboard: () => api.get('/api/gamification/leaderboard'),
+}
+
+// Progress Tracking API
+export const progressAPI = {
+  getPatientProgress: (patientCode: string, days?: number) =>
+    api.get(`/api/progress/patient/${patientCode}`, { params: { days } }),
+
+  getProgressSnapshots: (patientCode: string) =>
+    api.get(`/api/progress/patient/${patientCode}/snapshots`),
+
+  createProgressSnapshot: (patientCode: string, notes?: string) =>
+    api.post(`/api/progress/patient/${patientCode}/snapshot`, { notes }),
+
+  getComparativeAnalytics: () =>
+    api.get('/api/progress/comparative'),
+}
+
+// Notifications API
+export const notificationsAPI = {
+  getNotifications: (limit?: number, unreadOnly?: boolean) =>
+    api.get('/api/notifications', { params: { limit, unreadOnly } }),
+
+  markAsRead: (notificationId: number) =>
+    api.patch(`/api/notifications/${notificationId}/read`),
+
+  markAllAsRead: () =>
+    api.post('/api/notifications/mark-all-read'),
+
+  getPreferences: () =>
+    api.get('/api/notifications/preferences'),
+
+  updatePreferences: (preferences: any) =>
+    api.put('/api/notifications/preferences', preferences),
+}
