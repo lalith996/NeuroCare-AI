@@ -2,18 +2,18 @@
   "version": 2,
   "builds": [
     {
-      "src": "backend/main.py",
-      "use": "@vercel/python"
+      "src": "server/src/index.ts",
+      "use": "@vercel/node"
     }
   ],
   "routes": [
     {
+      "src": "/api/(.*)",
+      "dest": "server/src/index.ts"
+    },
+    {
       "src": "/(.*)",
-      "dest": "backend/main.py"
+      "dest": "client/dist/$1"
     }
-  ],
-  "env": {
-    "DATABASE_URL": "@database_url",
-    "JWT_SECRET": "@jwt_secret"
-  }
+  ]
 }
