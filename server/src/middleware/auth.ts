@@ -1,11 +1,12 @@
 import { Request, Response, NextFunction } from 'express';
 import jwt from 'jsonwebtoken';
+import { UserRole, hasPermission, Permission, isValidRole } from './permissions';
 
 export interface AuthRequest extends Request {
   user?: {
     id: number;
     email: string;
-    role: string;
+    role: UserRole;
   };
 }
 
@@ -31,7 +32,7 @@ export const authenticate = (req: AuthRequest, res: Response, next: NextFunction
   }
 };
 
-export const authorize = (...roles: string[]) => {
+export const authorize = (...roles: UserRole[]) => {
   return (req: AuthRequest, res: Response, next: NextFunction): void => {
     if (!req.user) {
       res.status(401).json({ error: 'Not authenticated' });
@@ -39,7 +40,63 @@ export const authorize = (...roles: string[]) => {
     }
 
     if (!roles.includes(req.user.role)) {
-      res.status(403).json({ error: 'Insufficient permissions' });
+      res.status(403).json({
+        error: 'Insufficient permissions',
+        required: roles,
+        current: req.user.role
+      });
+      return;
+    }
+
+    next();
+  };
+};
+
+// Permission-based authorization middleware
+export const requirePermission = (...permissions: Permission[]) => {
+  return (req: AuthRequest, res: Response, next: NextFunction): void => {
+    if (!req.user) {
+      res.status(401).json({ error: 'Not authenticated' });
+      return;
+    }
+
+    const userRole = req.user.role;
+    const hasRequiredPermissions = permissions.every((permission) =>
+      hasPermission(userRole, permission)
+    );
+
+    if (!hasRequiredPermissions) {
+      res.status(403).json({
+        error: 'Insufficient permissions',
+        required: permissions,
+        role: userRole,
+      });
+      return;
+    }
+
+    next();
+  };
+};
+
+// Middleware to allow access if user has ANY of the specified permissions
+export const requireAnyPermission = (...permissions: Permission[]) => {
+  return (req: AuthRequest, res: Response, next: NextFunction): void => {
+    if (!req.user) {
+      res.status(401).json({ error: 'Not authenticated' });
+      return;
+    }
+
+    const userRole = req.user.role;
+    const hasAnyRequiredPermission = permissions.some((permission) =>
+      hasPermission(userRole, permission)
+    );
+
+    if (!hasAnyRequiredPermission) {
+      res.status(403).json({
+        error: 'Insufficient permissions',
+        required: permissions,
+        role: userRole,
+      });
       return;
     }
 
