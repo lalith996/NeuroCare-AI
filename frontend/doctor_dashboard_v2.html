@@ -1,0 +1,347 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>NeuroCare AI — Doctor Dashboard</title>
+  <style>
+    * { box-sizing: border-box; }
+    body { font-family: 'Segoe UI', Arial, sans-serif; background: #f3f6fb; padding: 20px; margin: 0; }
+    .container { max-width: 1200px; margin: 0 auto; }
+    .card { background: white; padding: 20px; border-radius: 8px; box-shadow: 0 2px 8px rgba(0,0,0,0.08); margin-bottom: 20px; }
+    h2 { color: #0078d4; margin-top: 0; }
+    h3 { color: #333; border-bottom: 2px solid #0078d4; padding-bottom: 8px; }
+    button { padding: 10px 20px; border-radius: 6px; border: none; cursor: pointer; font-size: 14px; margin: 5px; transition: all 0.3s; }
+    button.primary { background: #0078d4; color: white; }
+    button.primary:hover { background: #005a9e; }
+    button.secondary { background: #6c757d; color: white; }
+    button.secondary:hover { background: #545b62; }
+    button.success { background: #28a745; color: white; }
+    button.success:hover { background: #218838; }
+    input, select { padding: 8px; border: 1px solid #ccc; border-radius: 4px; margin: 5px; }
+    .patient-card { background: #f8f9fa; padding: 15px; border-radius: 6px; margin: 10px 0; border-left: 4px solid #0078d4; }
+    .score-item { background: #e8f4f8; padding: 10px; margin: 5px 0; border-radius: 4px; }
+    .prediction-box { background: #fff3cd; padding: 15px; border-radius: 6px; margin: 10px 0; border-left: 4px solid #ffc107; }
+    .report-box { background: #d4edda; padding: 15px; border-radius: 6px; margin: 10px 0; white-space: pre-wrap; }
+    .hidden { display: none; }
+    .flex { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
+    .game-checkbox { margin: 10px; }
+    .status-badge { padding: 4px 8px; border-radius: 4px; font-size: 0.85rem; }
+    .status-assigned { background: #cfe2ff; color: #084298; }
+    .status-completed { background: #d1e7dd; color: #0f5132; }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="card">
+      <h2>🧠 NeuroCare AI — Doctor Dashboard</h2>
+      <div class="flex">
+        <span id="welcomeMsg">Welcome, Doctor</span>
+        <button onclick="logout()" class="secondary">Logout</button>
+      </div>
+    </div>
+
+    <div class="card">
+      <h3>My Patients</h3>
+      <button onclick="loadPatients()" class="primary">Refresh Patients</button>
+      <div id="patientsList">Loading...</div>
+    </div>
+
+    <div class="card hidden" id="patientDetailCard">
+      <h3>Patient Details</h3>
+      <div id="patientInfo"></div>
+      
+      <h4>Assign Games</h4>
+      <div id="gameAssignment">
+        <div class="game-checkbox"><input type="checkbox" id="game_memory_match" value="memory_match"> Memory Match</div>
+        <div class="game-checkbox"><input type="checkbox" id="game_attention_maze" value="attention_maze"> Attention Maze</div>
+        <div class="game-checkbox"><input type="checkbox" id="game_focus_puzzle" value="focus_puzzle"> Focus Puzzle</div>
+        <div class="game-checkbox"><input type="checkbox" id="game_pattern_match" value="pattern_match"> Pattern Match</div>
+        <div class="game-checkbox"><input type="checkbox" id="game_reaction_time" value="reaction_time"> Reaction Time</div>
+        <button onclick="assignGames()" class="success">Assign Selected Games</button>
+      </div>
+
+      <h4>Game Scores</h4>
+      <button onclick="loadScores()" class="primary">Load Scores</button>
+      <div id="scoresContainer"></div>
+
+      <h4>AI Prediction</h4>
+      <div>
+        <label>PatientID (from training data):</label>
+        <input type="number" id="predictionPatientId" placeholder="e.g., 1001">
+        <button onclick="runPrediction()" class="primary">Run Prediction</button>
+      </div>
+      <div id="predictionResult"></div>
+
+      <h4>Generate Patient Report</h4>
+      <button onclick="generateReport()" class="success">Generate Report</button>
+      <div id="reportResult"></div>
+    </div>
+  </div>
+
+  <script>
+    const BASE = "http://127.0.0.1:8000";
+    const token = localStorage.getItem("nc_token");
+    let currentPatientCode = null;
+
+    if (!token) {
+      window.location.href = "login_doctor.html";
+    }
+
+    async function loadPatients() {
+      document.getElementById("patientsList").innerHTML = "Loading...";
+      try {
+        const res = await fetch(BASE + "/doctor/my-patients", {
+          headers: { "Authorization": "Bearer " + token }
+        });
+        
+        if (!res.ok) {
+          document.getElementById("patientsList").innerHTML = "<p style='color: red;'>Error loading patients. Please login again.</p>";
+          return;
+        }
+        
+        const data = await res.json();
+        displayPatients(data.patients);
+      } catch (err) {
+        document.getElementById("patientsList").innerHTML = "<p style='color: red;'>Error: " + err.message + "</p>";
+      }
+    }
+
+    function displayPatients(patients) {
+      const container = document.getElementById("patientsList");
+      if (!patients || patients.length === 0) {
+        container.innerHTML = "<p style='color: #666;'>No patients assigned yet.</p>";
+        return;
+      }
+      
+      container.innerHTML = "";
+      patients.forEach(patient => {
+        const card = document.createElement("div");
+        card.className = "patient-card";
+        card.innerHTML = `
+          <div style="display: flex; justify-content: space-between; align-items: center;">
+            <div>
+              <strong>Patient Code:</strong> ${patient.patient_code}<br>
+              <span style="font-size: 0.9rem; color: #666;">
+                Age: ${patient.age || 'N/A'} | Sex: ${patient.sex || 'N/A'} | Education: ${patient.education_years || 'N/A'} years
+              </span>
+            </div>
+            <button onclick="viewPatient(${patient.patient_code})" class="primary">View Details</button>
+          </div>
+        `;
+        container.appendChild(card);
+      });
+    }
+
+    function viewPatient(patientCode) {
+      currentPatientCode = patientCode;
+      document.getElementById("patientDetailCard").classList.remove("hidden");
+      document.getElementById("patientInfo").innerHTML = `<strong>Viewing Patient Code: ${patientCode}</strong>`;
+      document.getElementById("scoresContainer").innerHTML = "";
+      document.getElementById("predictionResult").innerHTML = "";
+      document.getElementById("reportResult").innerHTML = "";
+      
+      // Scroll to detail card
+      document.getElementById("patientDetailCard").scrollIntoView({ behavior: "smooth" });
+    }
+
+    async function assignGames() {
+      if (!currentPatientCode) {
+        alert("Please select a patient first");
+        return;
+      }
+      
+      const selectedGames = [];
+      document.querySelectorAll("#gameAssignment input[type='checkbox']:checked").forEach(cb => {
+        selectedGames.push(cb.value);
+      });
+      
+      if (selectedGames.length === 0) {
+        alert("Please select at least one game");
+        return;
+      }
+      
+      try {
+        const res = await fetch(BASE + "/doctor/assign-games", {
+          method: "POST",
+          headers: {
+            "Authorization": "Bearer " + token,
+            "Content-Type": "application/json"
+          },
+          body: JSON.stringify({
+            patient_code: currentPatientCode,
+            games: selectedGames
+          })
+        });
+        
+        if (res.ok) {
+          alert("✓ Games assigned successfully!");
+        } else {
+          const err = await res.text();
+          alert("Failed to assign games: " + err);
+        }
+      } catch (err) {
+        alert("Error: " + err.message);
+      }
+    }
+
+    async function loadScores() {
+      if (!currentPatientCode) return;
+      
+      const container = document.getElementById("scoresContainer");
+      container.innerHTML = "Loading scores...";
+      
+      try {
+        const res = await fetch(BASE + "/doctor/patient/" + currentPatientCode + "/scores", {
+          headers: { "Authorization": "Bearer " + token }
+        });
+        
+        if (!res.ok) {
+          container.innerHTML = "<p style='color: red;'>Error loading scores</p>";
+          return;
+        }
+        
+        const data = await res.json();
+        displayScores(data.scores, data.prediction);
+      } catch (err) {
+        container.innerHTML = "<p style='color: red;'>Error: " + err.message + "</p>";
+      }
+    }
+
+    function displayScores(scores, prediction) {
+      const container = document.getElementById("scoresContainer");
+      
+      if (!scores || scores.length === 0) {
+        container.innerHTML = "<p style='color: #666;'>No scores recorded yet.</p>";
+        return;
+      }
+      
+      // Group by game
+      const byGame = {};
+      scores.forEach(s => {
+        if (!byGame[s.game]) byGame[s.game] = [];
+        byGame[s.game].push(s);
+      });
+      
+      let html = "";
+      for (const [game, gameScores] of Object.entries(byGame)) {
+        html += `<div class="score-item">
+          <strong>${game.replace(/_/g, ' ').toUpperCase()}</strong> (${gameScores.length} attempts)<br>
+          <span style="font-size: 0.9rem;">
+            Avg Score: ${(gameScores.reduce((sum, s) => sum + s.score, 0) / gameScores.length).toFixed(1)} | 
+            Max Level: ${Math.max(...gameScores.map(s => s.level))}
+          </span>
+        </div>`;
+      }
+      
+      container.innerHTML = html;
+      
+      // Show prediction if available
+      if (prediction) {
+        container.innerHTML += `
+          <div class="prediction-box">
+            <strong>Latest Prediction:</strong><br>
+            Risk Label: ${prediction.risk_label}<br>
+            Probability: ${(prediction.risk_probability * 100).toFixed(1)}%<br>
+            Computed: ${new Date(prediction.computed_at).toLocaleString()}
+          </div>
+        `;
+      }
+    }
+
+    async function runPrediction() {
+      const patientId = document.getElementById("predictionPatientId").value;
+      if (!patientId) {
+        alert("Please enter PatientID from training data");
+        return;
+      }
+      
+      const resultDiv = document.getElementById("predictionResult");
+      resultDiv.innerHTML = "<p>Running prediction...</p>";
+      
+      try {
+        const res = await fetch(BASE + "/predict", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ patient_id: parseInt(patientId) })
+        });
+        
+        if (!res.ok) {
+          const err = await res.text();
+          resultDiv.innerHTML = "<p style='color: red;'>Prediction failed: " + err + "</p>";
+          return;
+        }
+        
+        const data = await res.json();
+        resultDiv.innerHTML = `
+          <div class="prediction-box">
+            <strong>Prediction Result</strong><br>
+            Patient ID: ${data.patient_id}<br>
+            Risk Label: <strong>${data.risk_label}</strong><br>
+            Probability: <strong>${(data.risk_probability * 100).toFixed(1)}%</strong><br>
+            Model: ${data.model_used || 'N/A'}<br>
+            <details style="margin-top: 10px;">
+              <summary>All Probabilities</summary>
+              <pre>${JSON.stringify(data.all_probs, null, 2)}</pre>
+            </details>
+          </div>
+        `;
+      } catch (err) {
+        resultDiv.innerHTML = "<p style='color: red;'>Error: " + err.message + "</p>";
+      }
+    }
+
+    async function generateReport() {
+      if (!currentPatientCode) {
+        alert("Please select a patient first");
+        return;
+      }
+      
+      const resultDiv = document.getElementById("reportResult");
+      resultDiv.innerHTML = "<p>Generating report...</p>";
+      
+      try {
+        const res = await fetch(BASE + "/reports/generate/" + currentPatientCode, {
+          method: "POST",
+          headers: { "Authorization": "Bearer " + token }
+        });
+        
+        if (!res.ok) {
+          const err = await res.text();
+          resultDiv.innerHTML = "<p style='color: red;'>Report generation failed: " + err + "</p>";
+          return;
+        }
+        
+        const data = await res.json();
+        resultDiv.innerHTML = `
+          <div class="report-box">
+            <strong>✓ Report Generated Successfully</strong><br>
+            Report ID: ${data.report_id}<br><br>
+            ${data.report_content}
+          </div>
+          <button onclick="copyReport()" class="secondary">Copy Report</button>
+        `;
+      } catch (err) {
+        resultDiv.innerHTML = "<p style='color: red;'>Error: " + err.message + "</p>";
+      }
+    }
+
+    function copyReport() {
+      const reportText = document.querySelector(".report-box").innerText;
+      navigator.clipboard.writeText(reportText).then(() => {
+        alert("✓ Report copied to clipboard!");
+      });
+    }
+
+    function logout() {
+      localStorage.removeItem("nc_token");
+      localStorage.removeItem("doctor_id");
+      localStorage.removeItem("role");
+      window.location.href = "login_doctor.html";
+    }
+
+    // Load patients on page load
+    loadPatients();
+  </script>
+</body>
+</html>

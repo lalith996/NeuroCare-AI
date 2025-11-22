@@ -1,0 +1,85 @@
+<!-- save as frontend/focus_puzzle.html -->
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8"/>
+  <title>Focus Puzzle</title>
+  <meta name="viewport" content="width=device-width,initial-scale=1"/>
+  <style>
+    body{font-family:Arial;margin:16px;background:#f6f9fc}
+    .board{display:flex;flex-wrap:wrap;max-width:420px}
+    .tile{width:60px;height:60px;margin:6px;border-radius:6px;background:#888;cursor:pointer}
+    button{padding:8px 12px;border-radius:6px;background:#0078d4;color:#fff;border:none}
+    #msg{margin-top:10px}
+  </style>
+</head>
+<body>
+  <h2>Focus Puzzle</h2>
+  <div>
+    PatientID: <input id="patientId" style="width:80px"/>
+    Level: <input id="level" type="number" value="1" min="1" max="8" style="width:60px"/>
+    <button id="start">Start</button>
+    <button id="send">Send Score</button>
+  </div>
+  <div id="board" class="board"></div>
+  <div id="msg"></div>
+
+<script>
+const BASE = "http://127.0.0.1:8000";
+let startT=0,endT=0,score=0,sessionId=null,levels=1;
+function buildBoard(n){
+  const board=document.getElementById("board");
+  board.innerHTML="";
+  const total = Math.min(36, 4 + n*2);
+  const targetIndex = Math.floor(Math.random()*total);
+  for(let i=0;i<total;i++){
+    const t = document.createElement("div");
+    t.className="tile";
+    if(i===targetIndex) t.style.background="#0066ff"; else t.style.background="#8a8a8a";
+    t.addEventListener("click", ()=>{
+      if(!startT) return;
+      endT = Date.now();
+      const dt = (endT - startT)/1000.0;
+      score = Math.max(0, Math.round(1000 / (dt * Math.log2(total+2))));
+      document.getElementById("msg").innerText = "Time: "+dt.toFixed(2)+"s Score: "+score;
+      // disable tiles
+      document.querySelectorAll(".tile").forEach(x=>x.style.pointerEvents="none");
+    });
+    board.appendChild(t);
+  }
+}
+
+document.getElementById("start").addEventListener("click", ()=>{
+  sessionId = "focus-"+Date.now()+"-"+Math.random().toString(36).slice(2,6);
+  levels = parseInt(document.getElementById("level").value) || 1;
+  buildBoard(levels);
+  startT = Date.now();
+  endT = 0; score = 0;
+  document.getElementById("msg").innerText = "Find the blue square!";
+});
+
+document.getElementById("send").addEventListener("click", async ()=>{
+  const pid = parseInt(document.getElementById("patientId").value);
+  if(!pid){ alert("enter PatientID"); return; }
+  if(!sessionId) sessionId = "focus-"+Date.now();
+  const payload = {
+    patient_id: pid,
+    session_id: sessionId,
+    game: "FocusPuzzle",
+    level: levels,
+    score: score,
+    metrics: {duration_s: endT ? (endT-startT)/1000 : null},
+    timestamp_start: startT ? new Date(startT).toISOString() : null,
+    timestamp_end: endT ? new Date(endT).toISOString() : new Date().toISOString()
+  };
+  try{
+    const res = await fetch(BASE + "/api/scores", {
+      method:"POST", headers:{"Content-Type":"application/json"}, body: JSON.stringify(payload)
+    });
+    const j = await res.json();
+    document.getElementById("msg").innerText = "Sent: "+JSON.stringify(j);
+  }catch(e){ document.getElementById("msg").innerText = "Send error: "+e; }
+});
+</script>
+</body>
+</html>

@@ -1,0 +1,10 @@
+{
+  "pipeline_path": "/content/ml/models/pipeline.joblib",
+  "feature_list_path": "/content/ml/models/model_features.csv",
+  "model_accuracy_test": 1.0,
+  "target_classes": [
+    "Low",
+    "Medium"
+  ],
+  "created_at": "Fri Nov 21 19:23:49 2025"
+}

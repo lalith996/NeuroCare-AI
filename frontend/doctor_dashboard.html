@@ -1,0 +1,322 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>NeuroCare AI — Doctor Dashboard</title>
+  <style>
+    body { font-family: Arial, sans-serif; background:#f3f6fb; padding:20px; }
+    .card { background:white; padding:16px; border-radius:8px; box-shadow:0 2px 8px rgba(0,0,0,0.06); margin-bottom:12px; }
+    input, button, select { padding:8px; margin:6px 0; border-radius:6px; border:1px solid #ccc; }
+    button { cursor:pointer; background:#0078d4; color:white; border:none; }
+    button.secondary { background:#555; }
+    .row { display:flex; gap:10px; align-items:center; }
+    .small { font-size:0.9rem; color:#444; }
+    pre { background:#111; color:#0f0; padding:10px; border-radius:6px; overflow:auto; }
+  </style>
+</head>
+<body>
+  <h2>🧠 NeuroCare AI — Doctor Dashboard</h2>
+
+  <!-- Login area (doctor) -->
+  <div class="card" id="loginCard">
+    <h3>Doctor login</h3>
+    <div class="row">
+      <label style="width:90px">Email</label>
+      <input id="email" type="email" placeholder="doctor@demo.com" />
+    </div>
+    <div class="row">
+      <label style="width:90px">Password</label>
+      <input id="password" type="password" placeholder="your password" />
+    </div>
+    <div class="row">
+      <label style="width:90px">Doctor ID</label>
+      <input id="doctorId" type="number" placeholder="(optional) your user id" />
+      <small class="small">If omitted, dashboard will try to read doctor id after login from token payload.</small>
+    </div>
+    <div class="row">
+      <button id="btnLogin">Login</button>
+      <button id="btnLogout" class="secondary">Logout</button>
+    </div>
+    <div id="loginMsg" class="small"></div>
+  </div>
+
+  <!-- Controls & Patients -->
+  <div class="card" id="mainCard" style="display:none">
+    <h3>Assigned Patients</h3>
+    <div class="row">
+      <label style="width:140px">Doctor user id:</label>
+      <input id="curDoctorId" type="number" />
+      <button id="btnLoadPatients">Load Patients</button>
+    </div>
+
+    <div id="patientsList" style="margin-top:12px"></div>
+
+    <hr />
+
+    <h4>Manual Predict</h4>
+    <p class="small">If you have PatientID (used in training_table.csv), enter it to run predict:</p>
+    <div class="row">
+      <input id="manualPatientId" type="number" placeholder="PatientID (e.g. 1001)" />
+      <button id="btnPredictManual">Predict</button>
+    </div>
+
+    <div id="predictResult" style="margin-top:12px"></div>
+  </div>
+
+  <script>
+    // CONFIG - backend base URL
+    const BASE = "http://127.0.0.1:8000";
+
+    // token storage keys
+    const TOKEN_KEY = "nc_token";
+    const USER_ID_KEY = "nc_user_id";
+    const USER_ROLE_KEY = "nc_user_role";
+
+    // DOM
+    const emailEl = document.getElementById("email");
+    const passwordEl = document.getElementById("password");
+    const doctorIdEl = document.getElementById("doctorId");
+    const btnLogin = document.getElementById("btnLogin");
+    const btnLogout = document.getElementById("btnLogout");
+    const loginMsg = document.getElementById("loginMsg");
+
+    const mainCard = document.getElementById("mainCard");
+    const curDoctorIdEl = document.getElementById("curDoctorId");
+    const btnLoadPatients = document.getElementById("btnLoadPatients");
+    const patientsList = document.getElementById("patientsList");
+
+    const manualPatientId = document.getElementById("manualPatientId");
+    const btnPredictManual = document.getElementById("btnPredictManual");
+    const predictResult = document.getElementById("predictResult");
+
+    function saveToken(token, userId, role) {
+      localStorage.setItem(TOKEN_KEY, token);
+      if(userId) localStorage.setItem(USER_ID_KEY, String(userId));
+      if(role) localStorage.setItem(USER_ROLE_KEY, role);
+    }
+    function clearToken() {
+      localStorage.removeItem(TOKEN_KEY);
+      localStorage.removeItem(USER_ID_KEY);
+      localStorage.removeItem(USER_ROLE_KEY);
+    }
+    function getToken() {
+      return localStorage.getItem(TOKEN_KEY);
+    }
+    function getSavedUserId() {
+      return parseInt(localStorage.getItem(USER_ID_KEY) || "0", 10) || null;
+    }
+
+    async function login() {
+      loginMsg.innerText = "";
+      const email = emailEl.value.trim();
+      const password = passwordEl.value.trim();
+      if(!email || !password) {
+        loginMsg.innerText = "Please enter email and password.";
+        return;
+      }
+      try {
+        const res = await fetch(BASE + "/auth/login", {
+          method: "POST",
+          headers: {"Content-Type":"application/json"},
+          body: JSON.stringify({email, password})
+        });
+        if(!res.ok) {
+          const t = await res.text();
+          loginMsg.innerText = "Login failed: " + t;
+          return;
+        }
+        const data = await res.json();
+        // store token
+        saveToken(data.access_token, doctorIdEl.value || null, "doctor");
+        loginMsg.style.color = "green";
+        loginMsg.innerText = "Login successful — token saved.";
+        // show main
+        showMain();
+      } catch(err) {
+        loginMsg.innerText = "Login error: " + err;
+      }
+    }
+
+    function logout() {
+      clearToken();
+      loginMsg.style.color = "black";
+      loginMsg.innerText = "Logged out.";
+      mainCard.style.display = "none";
+    }
+
+    // show main area if token present
+    function showMain() {
+      const token = getToken();
+      if(!token) {
+        mainCard.style.display = "none";
+        return;
+      }
+      mainCard.style.display = "block";
+      // fill doctor id if available
+      const saved = getSavedUserId();
+      if(saved) curDoctorIdEl.value = saved;
+      else if(doctorIdEl.value) curDoctorIdEl.value = doctorIdEl.value;
+    }
+
+    // load patients assigned to a doctor
+    async function loadPatients() {
+      patientsList.innerHTML = "Loading...";
+      const token = getToken();
+      if(!token) { patientsList.innerText = "Not authenticated."; return; }
+      const did = parseInt(curDoctorIdEl.value, 10);
+      if(!did) { patientsList.innerText = "Enter doctor id above."; return; }
+      try {
+        const res = await fetch(BASE + "/doctor/" + did + "/patients", {
+          method: "GET",
+          headers: { "Authorization": "Bearer " + token }
+        });
+        if(!res.ok) {
+          const txt = await res.text();
+          patientsList.innerText = "Failed to load: " + txt;
+          return;
+        }
+        const j = await res.json();
+        renderPatients(j.patients || []);
+      } catch(err) {
+        patientsList.innerText = "Error: " + err;
+      }
+    }
+
+    function renderPatients(items) {
+      if(!items.length) {
+        patientsList.innerHTML = "<div class='small'>No patients assigned.</div>";
+        return;
+      }
+      const frag = document.createDocumentFragment();
+      items.forEach(p => {
+        const div = document.createElement("div");
+        div.className = "card";
+        div.style.marginBottom = "8px";
+        const idLine = document.createElement("div");
+        idLine.innerHTML = `<strong>patient_code:</strong> ${p.patient_code}  <span class="small"> (db id: ${p.id})</span>`;
+        div.appendChild(idLine);
+
+        // Input for PatientID (training id) — doctor may paste this
+        const input = document.createElement("input");
+        input.placeholder = "PatientID (from training_table.csv) - optional";
+        input.style.marginRight = "8px";
+        input.style.width = "220px";
+
+        // Predict button
+        const predictBtn = document.createElement("button");
+        predictBtn.innerText = "Predict (use PatientID)";
+        predictBtn.onclick = async () => {
+          const pid = parseInt(input.value, 10);
+          if(!pid) {
+            alert("Enter PatientID from training_table.csv to run predict (or use manual Predict above).");
+            return;
+          }
+          predictResult.innerHTML = "<div class='small'>Predicting...</div>";
+          try {
+            const res = await fetch(BASE + "/predict", {
+              method: "POST",
+              headers: {"Content-Type":"application/json"},
+              body: JSON.stringify({patient_id: pid})
+            });
+            const txt = await res.text();
+            if(!res.ok) {
+              predictResult.innerText = "Predict failed: " + txt;
+            } else {
+              const j = JSON.parse(txt);
+              showPredictOut(j);
+            }
+          } catch(err) {
+            predictResult.innerText = "Predict error: " + err;
+          }
+        };
+
+        // View scores button (example: will show DB stored score rows via API if available)
+        const viewScoresBtn = document.createElement("button");
+        viewScoresBtn.className = "secondary";
+        viewScoresBtn.innerText = "View recent scores (CSV fallback)";
+        viewScoresBtn.onclick = async () => {
+          predictResult.innerHTML = "<div class='small'>Loading recent scores CSV fallback...</div>";
+          try {
+            // This backend currently doesn't expose a scores list endpoint. If you added one, change the URL.
+            // As a quick demonstration, fetch the patient_game_scores.csv directly if served statically or use a custom endpoint.
+            // We'll attempt to fetch a CSV at /data/patient_game_scores.csv (only works if you serve it)
+            const csvUrl = BASE + "/data/patient_game_scores.csv";
+            const r = await fetch(csvUrl);
+            if(!r.ok) {
+              predictResult.innerText = "Could not fetch CSV from /data - not served by backend.";
+              return;
+            }
+            const text = await r.text();
+            predictResult.innerHTML = "<pre>" + text.slice(0, 800) + "</pre>";
+          } catch(err) {
+            predictResult.innerText = "Error fetching CSV: " + err;
+          }
+        };
+
+        div.appendChild(input);
+        div.appendChild(document.createElement("br"));
+        div.appendChild(predictBtn);
+        div.appendChild(viewScoresBtn);
+
+        frag.appendChild(div);
+      });
+      patientsList.innerHTML = "";
+      patientsList.appendChild(frag);
+    }
+
+    // manual predict (from input above)
+    async function predictManual() {
+      const pid = parseInt(manualPatientId.value, 10);
+      predictResult.innerHTML = "Predicting...";
+      if(!pid) { predictResult.innerText = "Enter PatientID"; return; }
+      try {
+        const res = await fetch(BASE + "/predict", {
+          method: "POST",
+          headers: {"Content-Type":"application/json"},
+          body: JSON.stringify({patient_id: pid})
+        });
+        if(!res.ok) {
+          const txt = await res.text();
+          predictResult.innerText = "Predict failed: " + txt;
+          return;
+        }
+        const j = await res.json();
+        showPredictOut(j);
+      } catch(err) {
+        predictResult.innerText = "Error: " + err;
+      }
+    }
+
+    function showPredictOut(obj) {
+      predictResult.innerHTML = "";
+      const card = document.createElement("div");
+      card.className = "card";
+      card.innerHTML = `
+        <div><strong>PatientID:</strong> ${obj.patient_id}</div>
+        <div><strong>Risk label:</strong> ${obj.risk_label}</div>
+        <div><strong>Risk probability:</strong> ${obj.risk_probability}</div>
+        <div><strong>Model used:</strong> ${obj.model_used || "unknown"}</div>
+        <h4>All probabilities</h4>
+        <pre>${JSON.stringify(obj.all_probs, null, 2)}</pre>
+      `;
+      predictResult.appendChild(card);
+    }
+
+    // --- wire events ---
+    btnLogin.addEventListener("click", login);
+    btnLogout.addEventListener("click", logout);
+    btnLoadPatients.addEventListener("click", loadPatients);
+    btnPredictManual.addEventListener("click", predictManual);
+
+    // show main if token present on load
+    (function init() {
+      if(getToken()) {
+        showMain();
+      } else {
+        mainCard.style.display = "none";
+      }
+    })();
+  </script>
+</body>
+</html>

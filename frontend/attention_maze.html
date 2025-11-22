@@ -1,0 +1,114 @@
+<!-- save as frontend/attention_maze.html -->
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8"/>
+  <title>Attention Maze</title>
+  <meta name="viewport" content="width=device-width,initial-scale=1"/>
+  <style>
+    body{font-family:Arial;margin:16px;background:#f6f9fc}
+    #board{display:grid;gap:4px;max-width:420px}
+    .cell{width:36px;height:36px;background:#e0e0e0;border-radius:4px}
+    .wall{background:#444}
+    .player{background:#ff6f61}
+    .goal{background:#59d36a}
+    button{padding:8px 12px;border-radius:6px;background:#0078d4;color:#fff;border:none}
+    #msg{margin-top:10px}
+  </style>
+</head>
+<body>
+  <h2>Attention Maze</h2>
+  <div>
+    PatientID: <input id="patientId" style="width:80px"/>
+    Level: <input id="level" type="number" value="1" min="1" max="6" style="width:60px"/>
+    <button id="start">Start</button>
+    <button id="send">Send Score</button>
+  </div>
+  <div id="board"></div>
+  <div id="msg"></div>
+
+<script>
+const BASE="http://127.0.0.1:8000";
+let maze=[], rows=5, cols=5, pr=0, pc=0, gr=0, gc=0, startTime=0, endTime=0, score=0, sessionId=null;
+
+function genMaze(size){
+  rows=cols=3+size; // small
+  maze = Array.from({length:rows}, ()=>Array(cols).fill(0));
+  // random walls
+  for(let r=0;r<rows;r++) for(let c=0;c<cols;c++){
+    if(Math.random()<0.2) maze[r][c]=1;
+  }
+  // ensure start (0,0) and goal (rows-1,cols-1) open
+  maze[0][0]=0; maze[rows-1][cols-1]=0;
+  pr=0; pc=0; gr=rows-1; gc=cols-1;
+}
+
+function render(){
+  const board=document.getElementById("board");
+  board.style.gridTemplateColumns = `repeat(${cols},36px)`;
+  board.innerHTML="";
+  for(let r=0;r<rows;r++){
+    for(let c=0;c<cols;c++){
+      const d=document.createElement("div");
+      d.className="cell";
+      if(maze[r][c]===1) d.classList.add("wall");
+      if(r===pr && c===pc) d.classList.add("player");
+      if(r===gr && c===gc) d.classList.add("goal");
+      board.appendChild(d);
+    }
+  }
+}
+
+document.addEventListener("keydown", (ev)=>{
+  if(!startTime) return;
+  let nr=pr, nc=pc;
+  if(ev.key.includes("Arrow")) {
+    if(ev.key==="ArrowUp") nr--;
+    if(ev.key==="ArrowDown") nr++;
+    if(ev.key==="ArrowLeft") nc--;
+    if(ev.key==="ArrowRight") nc++;
+    if(nr>=0 && nr<rows && nc>=0 && nc<cols && maze[nr][nc]===0){
+      pr=nr; pc=nc; render();
+    }
+    if(pr===gr && pc===gc){
+      endTime = Date.now();
+      const dt = (endTime - startTime)/1000;
+      score = Math.max(0, Math.round(1000/(dt*(rows+cols))));
+      document.getElementById("msg").innerText = `Reached goal! Time: ${dt.toFixed(2)}s Score: ${score}`;
+      startTime = 0; // stop
+    }
+  }
+});
+
+document.getElementById("start").addEventListener("click", ()=>{
+  sessionId = "maze-"+Date.now()+"-"+Math.random().toString(36).slice(2,6);
+  const lvl = parseInt(document.getElementById("level").value) || 1;
+  genMaze(lvl);
+  render();
+  startTime = Date.now();
+  endTime = 0; score = 0;
+  document.getElementById("msg").innerText = "Use arrow keys to move to the green goal.";
+});
+
+document.getElementById("send").addEventListener("click", async ()=>{
+  const pid = parseInt(document.getElementById("patientId").value);
+  if(!pid){ alert("Enter PatientID"); return; }
+  const payload = {
+    patient_id: pid,
+    session_id: sessionId || ("maze-"+Date.now()),
+    game: "AttentionMaze",
+    level: parseInt(document.getElementById("level").value)||1,
+    score: score,
+    metrics: {rows:rows, cols:cols},
+    timestamp_start: startTime? new Date(startTime).toISOString():null,
+    timestamp_end: endTime? new Date(endTime).toISOString():new Date().toISOString()
+  };
+  try{
+    const res = await fetch(BASE + "/api/scores", {method:"POST", headers:{"Content-Type":"application/json"}, body: JSON.stringify(payload)});
+    const j = await res.json();
+    document.getElementById("msg").innerText = "Sent: "+JSON.stringify(j);
+  }catch(e){ document.getElementById("msg").innerText = "Send error: "+e; }
+});
+</script>
+</body>
+</html>

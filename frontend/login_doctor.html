@@ -1,0 +1,37 @@
+<!doctype html>
+<html>
+<head><meta charset="utf-8"><title>Doctor Login</title></head>
+<body style="font-family:Arial;padding:20px;background:#eef2f7;">
+  <h2>Doctor Login</h2>
+  <form id="loginForm">
+    Email: <input id="email" type="email" required><br><br>
+    Password: <input id="password" type="password" required><br><br>
+    <button type="submit">Login</button>
+  </form>
+  <pre id="out"></pre>
+  <script>
+    document.getElementById('loginForm').onsubmit = async (e)=>{
+      e.preventDefault();
+      const email=document.getElementById('email').value;
+      const password=document.getElementById('password').value;
+      const res = await fetch("http://127.0.0.1:8000/auth/login", {
+        method:"POST",
+        headers:{"Content-Type":"application/json"},
+        body:JSON.stringify({email,password})
+      });
+      const data = await res.json();
+      if(res.ok){
+        localStorage.setItem("nc_token", data.access_token);
+        localStorage.setItem("role", "doctor");
+        // decode JWT to extract doctor ID
+        const base = data.access_token.split('.')[1];
+        const payload = JSON.parse(atob(base));
+        localStorage.setItem("doctor_id", payload.sub);
+        window.location.href = "doctor_dashboard.html";
+      }else{
+        document.getElementById('out').innerText = JSON.stringify(data);
+      }
+    };
+  </script>
+</body>
+</html>

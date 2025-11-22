@@ -1,0 +1,69 @@
+<!-- save as frontend/reaction_time.html -->
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8"/>
+  <title>Reaction Time</title>
+  <style>
+    body{font-family:Arial;margin:16px;background:#f6f9fc}
+    #big{width:220px;height:220px;border-radius:12px;background:#444;margin:20px auto;display:flex;align-items:center;justify-content:center;color:#fff;font-size:22px;cursor:pointer}
+    button{padding:8px 12px;border-radius:6px;background:#0078d4;color:#fff;border:none}
+  </style>
+</head>
+<body>
+  <h2>Reaction Time</h2>
+  <div>
+    PatientID: <input id="patientId" style="width:80px"/>
+    <button id="start">Start Trial</button>
+    <button id="send">Send Last</button>
+  </div>
+  <div id="big">Click when it turns green</div>
+  <div id="msg"></div>
+
+<script>
+const BASE="http://127.0.0.1:8000";
+let waiting=false, tStart=0, tEnd=0, lastRT=null, sessionId=null;
+const box = document.getElementById("big");
+box.addEventListener("click", ()=>{
+  if(!waiting) return;
+  tEnd = Date.now();
+  const rt = (tEnd - tStart);
+  lastRT = rt;
+  waiting = false;
+  box.style.background="#444";
+  document.getElementById("msg").innerText = "Reaction time: "+rt+" ms";
+});
+
+document.getElementById("start").addEventListener("click", ()=>{
+  sessionId = "rt-"+Date.now()+"-"+Math.random().toString(36).slice(2,6);
+  box.style.background="#444";
+  document.getElementById("msg").innerText = "Get ready...";
+  setTimeout(()=>{
+    box.style.background="#2ecc71";
+    tStart = Date.now();
+    waiting = true;
+  }, 800 + Math.random()*2000);
+});
+
+document.getElementById("send").addEventListener("click", async ()=>{
+  const pid = parseInt(document.getElementById("patientId").value);
+  if(!pid){ alert("Enter PatientID"); return; }
+  const payload = {
+    patient_id: pid,
+    session_id: sessionId || ("rt-"+Date.now()),
+    game: "ReactionTime",
+    level: 1,
+    score: lastRT ? Math.max(0, 1000 - lastRT) : 0,  // higher = better
+    metrics: {reaction_ms: lastRT},
+    timestamp_start: tStart? new Date(tStart).toISOString():null,
+    timestamp_end: tEnd? new Date(tEnd).toISOString():new Date().toISOString()
+  };
+  try{
+    const r = await fetch(BASE + "/api/scores", {method:"POST", headers:{"Content-Type":"application/json"}, body: JSON.stringify(payload)});
+    const j = await r.json();
+    document.getElementById("msg").innerText = "Sent: "+JSON.stringify(j);
+  }catch(e){ document.getElementById("msg").innerText = "Send error: "+e; }
+});
+</script>
+</body>
+</html>

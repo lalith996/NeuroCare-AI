@@ -1,0 +1,208 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Sign Up | NeuroCare AI</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      background-color: #eef2f7;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      height: 100vh;
+    }
+    h2 {
+      color: #0078d4;
+    }
+    form {
+      background: white;
+      padding: 30px;
+      border-radius: 10px;
+      box-shadow: 0 0 10px rgba(0,0,0,0.1);
+      width: 320px;
+      text-align: left;
+    }
+    label {
+      font-weight: bold;
+    }
+    input, select {
+      width: 100%;
+      padding: 8px;
+      margin: 8px 0;
+      border-radius: 5px;
+      border: 1px solid #ccc;
+      box-sizing: border-box;
+    }
+    button {
+      background-color: #0078d4;
+      color: white;
+      padding: 10px;
+      width: 100%;
+      border: none;
+      border-radius: 5px;
+      cursor: pointer;
+      font-weight: bold;
+    }
+    button[disabled] {
+      opacity: 0.6;
+      cursor: default;
+    }
+    button:hover:not([disabled]) {
+      background-color: #005fa3;
+    }
+    #msg {
+      margin-top: 12px;
+      color: red;
+      text-align: center;
+      word-break: break-word;
+    }
+    .links {
+      margin-top: 15px;
+      text-align: center;
+    }
+    a {
+      color: #0078d4;
+      text-decoration: none;
+    }
+    .note {
+      font-size: 0.9rem;
+      color: #555;
+      margin: 6px 0 0;
+    }
+  </style>
+</head>
+<body>
+  <h2>🧠 NeuroCare AI - Sign Up</h2>
+
+  <form id="signupForm" autocomplete="off" novalidate>
+    <label for="email">Email:</label>
+    <input type="email" id="email" required />
+
+    <label for="password">Password:</label>
+    <input type="password" id="password" required />
+    <div class="note">Passwords should be less than 72 bytes (avoid extremely long passphrases)</div>
+
+    <label for="role">Role:</label>
+    <select id="role" required>
+      <option value="">Select Role</option>
+      <option value="doctor">Doctor</option>
+      <option value="patient">Patient</option>
+    </select>
+
+    <button id="submitBtn" type="submit">Sign Up</button>
+  </form>
+
+  <p id="msg" role="status" aria-live="polite"></p>
+
+  <div class="links">
+    <p>Already have an account?</p>
+    <a href="login_patient.html">Patient Login</a> |
+    <a href="login_doctor.html">Doctor Login</a>
+  </div>
+
+  <script>
+    const backendUrl = "http://127.0.0.1:8000/auth/signup";
+    const MAX_BCRYPT_BYTES = 72;
+
+    function byteLengthOfUTF8(str) {
+      // TextEncoder is supported in modern browsers
+      try {
+        return new TextEncoder().encode(str).length;
+      } catch (e) {
+        // fallback (rare): approximate using encodeURIComponent
+        return unescape(encodeURIComponent(str)).length;
+      }
+    }
+
+    function showMsg(text, color = "red") {
+      const el = document.getElementById("msg");
+      el.style.color = color;
+      el.innerText = text;
+    }
+
+    document.getElementById("signupForm").addEventListener("submit", async (e) => {
+      e.preventDefault();
+      const submitBtn = document.getElementById("submitBtn");
+      submitBtn.disabled = true;
+      showMsg("", "red");
+
+      // read values (do not trim password)
+      const email = document.getElementById("email").value.trim();
+      const password = document.getElementById("password").value;
+      const role = document.getElementById("role").value;
+
+      // basic client-side validation
+      if (!email) {
+        showMsg("Please enter an email.");
+        submitBtn.disabled = false;
+        return;
+      }
+      if (!password) {
+        showMsg("Please enter a password.");
+        submitBtn.disabled = false;
+        return;
+      }
+      if (!role) {
+        showMsg("Please select a role.");
+        submitBtn.disabled = false;
+        return;
+      }
+
+      // check bcrypt byte-length limit (72 bytes)
+      const pwBytes = byteLengthOfUTF8(password);
+      if (pwBytes > MAX_BCRYPT_BYTES) {
+        showMsg(`Password is too long (${pwBytes} bytes). Please use a shorter password (under ${MAX_BCRYPT_BYTES} bytes).`);
+        submitBtn.disabled = false;
+        return;
+      }
+
+      const payload = { email, password, role };
+
+      try {
+        const res = await fetch(backendUrl, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(payload),
+        });
+
+        // try to parse JSON response (most backend responses are JSON)
+        const contentType = res.headers.get("content-type") || "";
+        let body = null;
+        if (contentType.includes("application/json")) {
+          body = await res.json();
+        } else {
+          body = await res.text();
+        }
+
+        if (res.ok) {
+          showMsg("✅ Signup successful! Redirecting to login...", "green");
+          setTimeout(() => {
+            if (role === "doctor") {
+              window.location.href = "login_doctor.html";
+            } else {
+              window.location.href = "login_patient.html";
+            }
+          }, 1200);
+        } else {
+          // display best available message
+          if (body && typeof body === "object" && body.detail) {
+            showMsg(`Signup failed: ${body.detail}`);
+          } else if (typeof body === "string" && body.length) {
+            showMsg(`Signup failed: ${body}`);
+          } else {
+            showMsg(`Signup failed (status ${res.status})`);
+          }
+        }
+      } catch (err) {
+        console.error("Signup error:", err);
+        showMsg("Network error while signing up. Is the backend running?");
+      } finally {
+        submitBtn.disabled = false;
+      }
+    });
+  </script>
+</body>
+</html>

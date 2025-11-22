@@ -1,0 +1,129 @@
+<!-- save as frontend/memory_match.html -->
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8"/>
+  <title>Memory Match — NeuroCare AI</title>
+  <meta name="viewport" content="width=device-width,initial-scale=1"/>
+  <style>
+    body{font-family:Arial;margin:16px;background:#f6f9fc}
+    .card{width:64px;height:64px;margin:6px;display:inline-block;border-radius:8px;background:#ccc;vertical-align:top}
+    .grid{max-width:420px}
+    .controls{margin-bottom:12px}
+    #msg{margin-top:10px;color:#333}
+    button{padding:8px 12px;border-radius:6px;background:#0078d4;color:#fff;border:none}
+  </style>
+</head>
+<body>
+  <h2>Memory Match</h2>
+  <div class="controls">
+    <label>PatientID: <input id="patientId" type="number" style="width:90px"/></label>
+    <label>Level: <input id="level" type="number" value="1" min="1" max="6" style="width:60px"/></label>
+    <button id="start">Start Round</button>
+    <button id="send">Send Score</button>
+  </div>
+  <div id="grid" class="grid"></div>
+  <div id="msg"></div>
+
+<script>
+const BASE = "http://127.0.0.1:8000";
+const GAME = "MemoryMatch";
+
+let sequence = [];
+let userSeq = [];
+let level = 1;
+let startTime=null, endTime=null;
+let score = 0;
+let sessionId = null;
+
+function randChoice(arr){ return arr[Math.floor(Math.random()*arr.length)]; }
+
+function buildGrid(size){
+  const grid = document.getElementById("grid");
+  grid.innerHTML = "";
+  for(let i=0;i<size;i++){
+    const d=document.createElement("div");
+    d.className="card";
+    d.dataset.pos=i;
+    d.addEventListener("click", onCardClick);
+    grid.appendChild(d);
+  }
+}
+
+function flashSequence(seq){
+  const cards=document.querySelectorAll(".card");
+  let i=0;
+  function showNext(){
+    if(i>=seq.length){ startUserTurn(); return; }
+    const pos=seq[i];
+    const el=cards[pos];
+    el.style.background="#ffcc00";
+    setTimeout(()=>{ el.style.background="#ccc"; i++; setTimeout(showNext,250)},600);
+  }
+  showNext();
+}
+
+function onCardClick(e){
+  const pos = parseInt(e.currentTarget.dataset.pos);
+  userSeq.push(pos);
+  e.currentTarget.style.background="#88e"; // feedback
+  setTimeout(()=>{ e.currentTarget.style.background="#ccc"; },300);
+  checkProgress();
+}
+
+function checkProgress(){
+  const cur = userSeq.length-1;
+  if(userSeq[cur] !== sequence[cur]){
+    // wrong — end round
+    endTime = Date.now();
+    score = Math.max(0, Math.round(100 * (sequence.length - userSeq.length + 1) / sequence.length));
+    showMsg("Wrong — round over. Score: "+score);
+  } else {
+    if(userSeq.length === sequence.length){
+      endTime = Date.now();
+      score = 100;
+      showMsg("Well done! Score: "+score);
+    } else {
+      showMsg(`Good so far (${userSeq.length}/${sequence.length})`);
+    }
+  }
+}
+
+function showMsg(m){ document.getElementById("msg").innerText = m; }
+
+document.getElementById("start").addEventListener("click", ()=>{
+  sessionId = "mem-"+Date.now()+"-"+Math.random().toString(36).slice(2,8);
+  level = parseInt(document.getElementById("level").value) || 1;
+  const gridSize = Math.min(9, 3 + level); // 3..9
+  buildGrid(gridSize);
+  sequence = [];
+  userSeq = [];
+  for(let i=0;i<level+2;i++) sequence.push(Math.floor(Math.random()*gridSize));
+  startTime = Date.now(); endTime = null; score = 0;
+  showMsg("Watch the sequence...");
+  flashSequence(sequence);
+});
+
+document.getElementById("send").addEventListener("click", async ()=>{
+  const pid = parseInt(document.getElementById("patientId").value);
+  if(!pid){ alert("Enter PatientID"); return; }
+  if(!sessionId) sessionId = "mem-"+Date.now();
+  const payload = {
+    patient_id: pid,
+    session_id: sessionId,
+    game: GAME,
+    level: level,
+    score: score,
+    metrics: {sequence_len: sequence.length, user_len: userSeq.length},
+    timestamp_start: startTime ? new Date(startTime).toISOString() : null,
+    timestamp_end: endTime ? new Date(endTime).toISOString() : new Date().toISOString()
+  };
+  try{
+    const res = await fetch(BASE + "/api/scores", {method:"POST", headers:{"Content-Type":"application/json"}, body: JSON.stringify(payload)});
+    const j = await res.json();
+    showMsg("Sent: "+JSON.stringify(j));
+  }catch(e){ showMsg("Send error: "+e); }
+});
+</script>
+</body>
+</html>

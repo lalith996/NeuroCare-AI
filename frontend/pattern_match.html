@@ -1,0 +1,109 @@
+<!-- save as frontend/pattern_match.html -->
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8"/>
+  <title>Pattern Match</title>
+  <style>
+    body{font-family:Arial;margin:16px;background:#f6f9fc}
+    .grid{display:grid;grid-template-columns:repeat(4,60px);gap:8px;max-width:260px}
+    .cell{width:60px;height:60px;background:#ddd;border-radius:6px;display:flex;align-items:center;justify-content:center;cursor:pointer}
+    .on{background:#0078d4;color:#fff}
+    button{padding:8px 12px;border-radius:6px;background:#0078d4;color:#fff;border:none}
+    #msg{margin-top:12px}
+  </style>
+</head>
+<body>
+  <h2>Pattern Match</h2>
+  <div>
+    PatientID: <input id="patientId" style="width:80px"/>
+    Level: <input id="level" type="number" value="1" style="width:60px"/>
+    <button id="start">Show Pattern</button>
+    <button id="send">Send Score</button>
+  </div>
+  <div id="board" class="grid"></div>
+  <div id="msg"></div>
+
+<script>
+const BASE="http://127.0.0.1:8000";
+let targetPattern=[], userPattern=[], showTimeout=600, level=1, sessionId=null, score=0, t0=0, t1=0;
+
+function buildEmpty(){
+  const board=document.getElementById("board");
+  board.innerHTML="";
+  for(let i=0;i<16;i++){
+    const c=document.createElement("div");
+    c.className="cell";
+    c.dataset.idx=i;
+    c.addEventListener("click", ()=>{
+      if(t0===0) return; // not in input phase
+      c.classList.toggle("on");
+    });
+    board.appendChild(c);
+  }
+}
+
+function showPattern(pattern){
+  const cells=document.querySelectorAll(".cell");
+  cells.forEach(c=>c.classList.remove("on"));
+  let i=0;
+  function step(){
+    if(i>=pattern.length){ // done showing, now allow user input
+      t0 = Date.now();
+      document.getElementById("msg").innerText = "Now reproduce the pattern and click Send Score.";
+      return;
+    }
+    const idx = pattern[i];
+    cells[idx].classList.add("on");
+    setTimeout(()=>{ cells[idx].classList.remove("on"); i++; setTimeout(step,150); }, showTimeout);
+  }
+  step();
+}
+
+document.getElementById("start").addEventListener("click", ()=>{
+  sessionId = "pattern-"+Date.now()+"-"+Math.random().toString(36).slice(2,6);
+  level = parseInt(document.getElementById("level").value) || 1;
+  buildEmpty();
+  // generate pattern length depends on level
+  const len = Math.min(12, 3 + level*2);
+  targetPattern=[];
+  while(targetPattern.length < len){
+    const r = Math.floor(Math.random()*16);
+    if(!targetPattern.includes(r)) targetPattern.push(r);
+  }
+  showPattern(targetPattern);
+});
+
+document.getElementById("send").addEventListener("click", async ()=>{
+  const pid = parseInt(document.getElementById("patientId").value);
+  if(!pid){ alert("Enter PatientID"); return; }
+  // capture user pattern
+  const cells=document.querySelectorAll(".cell");
+  userPattern=[];
+  cells.forEach((c,i)=>{ if(c.classList.contains("on")) userPattern.push(i); });
+  t1 = Date.now();
+  // score = overlap between sets / len * 100
+  const common = userPattern.filter(x=>targetPattern.includes(x)).length;
+  const denom = Math.max(targetPattern.length,1);
+  score = Math.round((common/denom)*100);
+  document.getElementById("msg").innerText = `You matched ${common}/${denom}. Score: ${score}`;
+  // send
+  const payload = {
+    patient_id: pid,
+    session_id: sessionId || ("pattern-"+Date.now()),
+    game: "PatternMatch",
+    level: level,
+    score: score,
+    metrics: {target: targetPattern, user: userPattern, match_count: common},
+    timestamp_start: t0 ? new Date(t0).toISOString() : null,
+    timestamp_end: t1 ? new Date(t1).toISOString() : new Date().toISOString()
+  };
+  try{
+    const r = await fetch(BASE + "/api/scores", {method:"POST", headers:{"Content-Type":"application/json"}, body: JSON.stringify(payload)});
+    const j = await r.json();
+    document.getElementById("msg").innerText += " — Sent: "+JSON.stringify(j);
+  }catch(e){ document.getElementById("msg").innerText += " — Send error: "+e; }
+});
+</script>
+</body>
+</html>

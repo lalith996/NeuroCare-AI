@@ -1,0 +1,219 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>Patient Dashboard - NeuroCare AI</title>
+  <style>
+    body { font-family: Arial, sans-serif; padding: 20px; background: #f3f6fb; }
+    .card { background: white; padding: 20px; border-radius: 8px; box-shadow: 0 2px 8px rgba(0,0,0,0.1); margin-bottom: 20px; }
+    .game-card { background: #e8f4f8; padding: 15px; border-radius: 6px; margin: 10px 0; cursor: pointer; transition: all 0.3s; }
+    .game-card:hover { background: #d0e8f0; transform: translateY(-2px); }
+    button { padding: 10px 20px; background: #0078d4; color: white; border: none; border-radius: 6px; cursor: pointer; margin: 5px; }
+    button:hover { background: #005a9e; }
+    .secondary { background: #6c757d; }
+    .secondary:hover { background: #545b62; }
+    .upload-section { margin-top: 20px; padding: 15px; background: #fff3cd; border-radius: 6px; }
+    #gamesList { min-height: 100px; }
+    .no-games { color: #666; font-style: italic; }
+  </style>
+</head>
+<body>
+  <div class="card">
+    <h2>🧑‍🧠 Patient Dashboard</h2>
+    <p id="welcome"></p>
+    <button onclick="logout()" class="secondary">Logout</button>
+  </div>
+
+  <div class="card">
+    <h3>Your Assigned Games</h3>
+    <p style="color: #666; font-size: 0.9rem;">Your doctor has assigned these cognitive games for you to play. Complete them regularly for accurate assessment.</p>
+    <div id="gamesList">Loading...</div>
+    <button onclick="loadGames()">Refresh Games</button>
+  </div>
+
+  <div class="card">
+    <h3>Upload Medical Documents (Optional)</h3>
+    <p style="color: #666; font-size: 0.9rem;">Upload previous medical records, lab results, or imaging reports. This helps improve prediction accuracy.</p>
+    <input type="file" id="fileInput" accept=".pdf,.jpg,.jpeg,.png,.doc,.docx">
+    <select id="docType">
+      <option value="medical_history">Medical History</option>
+      <option value="lab_results">Lab Results</option>
+      <option value="imaging">Imaging Reports</option>
+      <option value="other">Other</option>
+    </select>
+    <button onclick="uploadDocument()">Upload</button>
+    <div id="uploadStatus"></div>
+    
+    <h4>Your Documents</h4>
+    <div id="documentsList">Loading...</div>
+  </div>
+
+  <div class="card">
+    <h3>Your Latest Report</h3>
+    <button onclick="viewReport()">View My Report</button>
+    <div id="reportContent"></div>
+  </div>
+
+  <script>
+    const BASE = "http://127.0.0.1:8000";
+    const token = localStorage.getItem("nc_token");
+    const patientId = localStorage.getItem("patient_id");
+
+    if (!token) {
+      window.location.href = "login_patient.html";
+    }
+
+    document.getElementById("welcome").innerText = "Welcome, Patient!";
+
+    const gameUrls = {
+      "memory_match": "memory_match.html",
+      "attention_maze": "attention_maze.html",
+      "focus_puzzle": "focus_puzzle.html",
+      "pattern_match": "pattern_match.html",
+      "reaction_time": "reaction_time.html"
+    };
+
+    async function loadGames() {
+      document.getElementById("gamesList").innerHTML = "Loading...";
+      try {
+        const res = await fetch(BASE + "/patient/my-games", {
+          headers: { "Authorization": "Bearer " + token }
+        });
+        if (!res.ok) {
+          document.getElementById("gamesList").innerHTML = "<p class='no-games'>Error loading games. Please login again.</p>";
+          return;
+        }
+        const data = await res.json();
+        displayGames(data.assigned_games);
+      } catch (err) {
+        document.getElementById("gamesList").innerHTML = "<p class='no-games'>Error: " + err.message + "</p>";
+      }
+    }
+
+    function displayGames(games) {
+      const container = document.getElementById("gamesList");
+      if (!games || games.length === 0) {
+        container.innerHTML = "<p class='no-games'>No games assigned yet. Please contact your doctor.</p>";
+        return;
+      }
+      
+      container.innerHTML = "";
+      games.forEach(game => {
+        const card = document.createElement("div");
+        card.className = "game-card";
+        card.innerHTML = `
+          <h4>${game.game_name.replace(/_/g, ' ').toUpperCase()}</h4>
+          <p>Status: ${game.status}</p>
+          <p style="font-size: 0.85rem; color: #666;">Assigned: ${new Date(game.assigned_at).toLocaleDateString()}</p>
+        `;
+        card.onclick = () => {
+          const url = gameUrls[game.game_name] || game.game_name + ".html";
+          window.open(url, "_blank");
+        };
+        container.appendChild(card);
+      });
+    }
+
+    async function uploadDocument() {
+      const fileInput = document.getElementById("fileInput");
+      const docType = document.getElementById("docType").value;
+      const statusDiv = document.getElementById("uploadStatus");
+      
+      if (!fileInput.files[0]) {
+        statusDiv.innerHTML = "<p style='color: red;'>Please select a file</p>";
+        return;
+      }
+      
+      const formData = new FormData();
+      formData.append("file", fileInput.files[0]);
+      
+      statusDiv.innerHTML = "<p>Uploading...</p>";
+      
+      try {
+        const res = await fetch(BASE + "/patient/upload-document?document_type=" + docType, {
+          method: "POST",
+          headers: { "Authorization": "Bearer " + token },
+          body: formData
+        });
+        
+        if (res.ok) {
+          statusDiv.innerHTML = "<p style='color: green;'>✓ Uploaded successfully!</p>";
+          fileInput.value = "";
+          loadDocuments();
+        } else {
+          const err = await res.text();
+          statusDiv.innerHTML = "<p style='color: red;'>Upload failed: " + err + "</p>";
+        }
+      } catch (err) {
+        statusDiv.innerHTML = "<p style='color: red;'>Error: " + err.message + "</p>";
+      }
+    }
+
+    async function loadDocuments() {
+      try {
+        const res = await fetch(BASE + "/patient/my-documents", {
+          headers: { "Authorization": "Bearer " + token }
+        });
+        if (res.ok) {
+          const data = await res.json();
+          const container = document.getElementById("documentsList");
+          if (data.documents.length === 0) {
+            container.innerHTML = "<p class='no-games'>No documents uploaded yet.</p>";
+          } else {
+            container.innerHTML = data.documents.map(doc => 
+              `<div style="padding: 8px; background: #f8f9fa; margin: 5px 0; border-radius: 4px;">
+                📄 ${doc.file_name} (${doc.document_type}) - ${new Date(doc.uploaded_at).toLocaleDateString()}
+              </div>`
+            ).join("");
+          }
+        }
+      } catch (err) {
+        console.error("Error loading documents:", err);
+      }
+    }
+
+    async function viewReport() {
+      const reportDiv = document.getElementById("reportContent");
+      reportDiv.innerHTML = "<p>Loading report...</p>";
+      
+      try {
+        // First get patient code from my-games endpoint
+        const gamesRes = await fetch(BASE + "/patient/my-games", {
+          headers: { "Authorization": "Bearer " + token }
+        });
+        const gamesData = await gamesRes.json();
+        const patientCode = gamesData.patient_code;
+        
+        const res = await fetch(BASE + "/reports/patient/" + patientCode + "/latest", {
+          headers: { "Authorization": "Bearer " + token }
+        });
+        
+        if (res.ok) {
+          const data = await res.json();
+          reportDiv.innerHTML = `
+            <div style="background: #f8f9fa; padding: 15px; border-radius: 6px; margin-top: 10px; white-space: pre-wrap;">
+              ${data.report_content}
+            </div>
+            <p style="font-size: 0.85rem; color: #666; margin-top: 10px;">Generated: ${new Date(data.generated_at).toLocaleString()}</p>
+          `;
+        } else {
+          reportDiv.innerHTML = "<p style='color: #666;'>No report available yet. Your doctor will generate one after reviewing your scores.</p>";
+        }
+      } catch (err) {
+        reportDiv.innerHTML = "<p style='color: red;'>Error loading report: " + err.message + "</p>";
+      }
+    }
+
+    function logout() {
+      localStorage.removeItem("nc_token");
+      localStorage.removeItem("patient_id");
+      localStorage.removeItem("role");
+      window.location.href = "login_patient.html";
+    }
+
+    // Load data on page load
+    loadGames();
+    loadDocuments();
+  </script>
+</body>
+</html>
