@@ -9,6 +9,10 @@ import { Navbar } from '@/components/layout/Navbar'
 import { Achievements } from '@/components/gamification/Achievements'
 import { ProgressChart } from '@/components/progress/ProgressChart'
 import { MemoryMatchGame } from '@/components/games/MemoryMatchGame'
+import { StroopTestGame } from '@/components/games/StroopTestGame'
+import { ReactionTimeGame } from '@/components/games/ReactionTimeGame'
+import { NBackGame } from '@/components/games/NBackGame'
+import { CognitiveFingerprint } from '@/components/analytics/CognitiveFingerprint'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Button } from '@/components/ui/button'
@@ -78,20 +82,25 @@ export default function EnhancedPatientDashboard() {
       color: 'bg-blue-500',
     },
     {
-      id: 'pattern-recognition',
-      name: 'Pattern Recognition',
-      description: 'Identify patterns in sequences (Coming Soon)',
+      id: 'stroop-test',
+      name: 'Stroop Test',
+      description: 'Measure attention and cognitive flexibility',
       icon: Target,
       color: 'bg-purple-500',
-      disabled: true,
     },
     {
-      id: 'attention-test',
-      name: 'Attention Test',
-      description: 'Test your focus and attention span (Coming Soon)',
+      id: 'reaction-time',
+      name: 'Reaction Time',
+      description: 'Test your processing speed and reflexes',
       icon: Activity,
       color: 'bg-green-500',
-      disabled: true,
+    },
+    {
+      id: 'n-back',
+      name: 'N-Back Test',
+      description: 'Challenge your working memory capacity',
+      icon: Brain,
+      color: 'bg-orange-500',
     },
   ]
 
@@ -156,16 +165,17 @@ export default function EnhancedPatientDashboard() {
 
         {/* Main Content Tabs */}
         <Tabs defaultValue="games" className="space-y-6">
-          <TabsList className="grid w-full grid-cols-4">
+          <TabsList className="grid w-full grid-cols-5">
             <TabsTrigger value="games">Games</TabsTrigger>
             <TabsTrigger value="progress">Progress</TabsTrigger>
+            <TabsTrigger value="profile">Cognitive Profile</TabsTrigger>
             <TabsTrigger value="achievements">Achievements</TabsTrigger>
             <TabsTrigger value="leaderboard">Leaderboard</TabsTrigger>
           </TabsList>
 
           {/* Games Tab */}
           <TabsContent value="games" className="space-y-6">
-            {selectedGame === 'memory-match' ? (
+            {selectedGame ? (
               <div className="space-y-4">
                 <Button
                   variant="outline"
@@ -173,10 +183,13 @@ export default function EnhancedPatientDashboard() {
                 >
                   ← Back to Games
                 </Button>
-                <MemoryMatchGame />
+                {selectedGame === 'memory-match' && <MemoryMatchGame />}
+                {selectedGame === 'stroop-test' && <StroopTestGame />}
+                {selectedGame === 'reaction-time' && <ReactionTimeGame />}
+                {selectedGame === 'n-back' && <NBackGame />}
               </div>
             ) : (
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
                 {availableGames.map((game) => (
                   <GameCard
                     key={game.id}
@@ -191,6 +204,11 @@ export default function EnhancedPatientDashboard() {
           {/* Progress Tab */}
           <TabsContent value="progress" className="space-y-6">
             <ProgressChart patientCode={user?.patientCode || user?.id?.toString() || '0'} days={30} />
+          </TabsContent>
+
+          {/* Cognitive Profile Tab */}
+          <TabsContent value="profile" className="space-y-6">
+            <CognitiveFingerprint patientCode={user?.patientCode || user?.id?.toString() || '0'} />
           </TabsContent>
 
           {/* Achievements Tab */}
